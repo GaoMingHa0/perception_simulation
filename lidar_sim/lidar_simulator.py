@@ -25,17 +25,16 @@ DEFAULT_CONE_TYPE = "small_blue"
 
 def front(car_position, car_heading, cone_position):
     """Return True when the cone is in front of the vehicle/LiDAR."""
-    car_position = np.asarray(car_position, dtype=float)
-    cone_position = np.asarray(cone_position, dtype=float)
+
     delta = cone_position[:2] - car_position[:2]
     x_forward = delta[0] * np.cos(car_heading) + delta[1] * np.sin(car_heading)
     return bool(x_forward > 0.0)
 
 
 def angle_judge(car_position, car_heading, cone_position, fov_deg=120.0):
-    """Return True when the cone is inside the horizontal LiDAR FOV."""
-    car_position = np.asarray(car_position, dtype=float)
-    cone_position = np.asarray(cone_position, dtype=float)
+    """Return True when the cone is inside the horizontal LiDAR FOV.
+    判断锥桶是否在120°角度内
+    """
 
     dx = cone_position[0] - car_position[0]
     dy = cone_position[1] - car_position[1]
@@ -46,12 +45,16 @@ def angle_judge(car_position, car_heading, cone_position, fov_deg=120.0):
     return bool(abs(relative_angle) <= half_fov)
 
 
-def distance_judge(car_position, cone_position, min_dist=1.5, max_dist=50.0):
-    """Return True when the cone is inside the valid LiDAR range."""
-    car_position = np.asarray(car_position, dtype=float)
-    cone_position = np.asarray(cone_position, dtype=float)
+def distance_judge(car_position, cone_position):
+    """Return True when the cone is inside the valid LiDAR range.
+    距离判断
+    np.linalg.norm() 计算两个点之间的欧几里得距离
+    因为车辆高度置0，不需要考虑z轴高度，距离计算只需要考虑xy坐标
+    """
+    car_position = car_position[:,:2]
+    cone_position = cone_position[:,:2]
     dist = np.linalg.norm(cone_position - car_position)
-    return bool(min_dist <= dist <= max_dist)
+    return bool(1.5 <= dist <= 50.0)
 
 
 def _cone_size_from_kind(kind):
@@ -193,17 +196,43 @@ def judge(car_position, car_heading, cone_position, obstacles=None):
     return True
 
 
+## 生成 锥桶反射点云
+
 def point_make_and_map(cone_position):
     """Placeholder for point-cloud generation, kept for the current skeleton."""
     return np.asarray(cone_position, dtype=float)
 
 
-def main():
+## 生成 模拟地面 
+
+def plane_make():
+
+
+
+
+
+def main(): 
+
+
+    
+
+
     car_position = np.array([0.0, 0.0, 0.0])
+
     car_heading = 0.0
+
     cone_position = np.array([5.0, 0.0, 0.0])
+
+    car_position = np.asarray(car_position, dtype=float)
+    cone_position = np.asarray(cone_position, dtype=float)
+
+    map = numpy.zeros((100, 100), dtype=int)
+
     obstacles = [{"position": np.array([2.5, 0.0, 0.0]), "color": "yellow"}]
-    print(judge(car_position, car_heading, cone_position, obstacles))
+    # "position": cone_position ,"color": "yellow"
+    if(judge(car_position, car_heading, cone_position, obstacles)):
+        point_make_and_map(cone_position)
+
 
 
 if __name__ == "__main__":
