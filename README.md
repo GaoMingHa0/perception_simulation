@@ -24,6 +24,19 @@ python3 -m pytest tests/test_lidar_core.py
 
 ### Run
 
+Interactive one-command launcher with track selection:
+
+```bash
+./run_simulator.sh
+```
+
+Skip the menu by passing a track name or YAML path:
+
+```bash
+./run_simulator.sh trackdrive
+./run_simulator.sh tracks/acceleration.yaml
+```
+
 ```bash
 ros2 launch lidar_sim lidar_simulator.launch.py
 ```
