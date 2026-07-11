@@ -33,6 +33,13 @@ Default behavior:
 - subscribes: `/sim/ground_truth` (`nav_msgs/msg/Odometry`)
 - publishes: `/hesai/pandar` (`sensor_msgs/msg/PointCloud2`)
 - publishes debug markers: `/sim/lidar/visible_cones` (`visualization_msgs/msg/MarkerArray`)
+- publishes the complete ground-truth map loaded directly from YAML: `/sim/lidar/track_cones`
+  (`visualization_msgs/msg/MarkerArray`, `map` frame).  It is transient-local,
+  so RViz can display it even when opened after the simulator.  Each cone uses
+  its YAML color and physical size, with a label containing its ID, type and
+  dimensions.  This topic is independent of `/mapping/cone_map_viz`.
+  It is published once at node startup and remains available independently of
+  LiDAR scans, odometry, or vehicle motion.
 - loads track YAML directly from: `share/lidar_sim/tracks/trackdrive.yaml`
 
 Override the track file:

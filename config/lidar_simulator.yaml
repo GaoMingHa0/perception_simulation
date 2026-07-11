@@ -5,6 +5,10 @@ lidar_simulator:
     pointcloud_topic: "/hesai/pandar"
     visible_markers_topic: "/sim/lidar/visible_cones"
     track_markers_topic: "/sim/lidar/track_cones"
+    # Static ground-truth map loaded directly from track_file, not FSD mapping.
+    map_frame: "map"
+    show_track_labels: true
+    track_label_scale: 0.22
     publish_rate_hz: 10.0
     frame_id: "lidar"
     use_start_pose_until_odom: true

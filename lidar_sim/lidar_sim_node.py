@@ -10,6 +10,7 @@ from ament_index_python.packages import PackageNotFoundError, get_package_share_
 from geometry_msgs.msg import Point
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs_py import point_cloud2
 from sensor_msgs.msg import PointCloud2
 from std_msgs.msg import Header
@@ -100,6 +101,9 @@ class LidarSimulatorNode(Node):
         self.declare_parameter("pointcloud_topic", "/hesai/pandar")
         self.declare_parameter("visible_markers_topic", "/sim/lidar/visible_cones")
         self.declare_parameter("track_markers_topic", "/sim/lidar/track_cones")
+        self.declare_parameter("map_frame", "map")
+        self.declare_parameter("show_track_labels", True)
+        self.declare_parameter("track_label_scale", 0.22)
         self.declare_parameter("publish_rate_hz", 10.0)
         self.declare_parameter("frame_id", "lidar")
         self.declare_parameter("use_start_pose_until_odom", True)
@@ -125,6 +129,7 @@ class LidarSimulatorNode(Node):
         track_file = _resolve_track_file(str(self.get_parameter("track_file").value))
         self.cones, self.start_pose = load_track_yaml(track_file)
         self.current_pose: Optional[List[float]] = None
+        self.current_pose_stamp: Optional[Any] = None
 
         config = LidarConfig(
             fov_deg=float(self.get_parameter("fov_deg").value),
@@ -150,7 +155,18 @@ class LidarSimulatorNode(Node):
         self.simulator = LidarSimulator(config, seed=int(self.get_parameter("random_seed").value))
 
         self.frame_id = str(self.get_parameter("frame_id").value)
+        self.map_frame = str(self.get_parameter("map_frame").value)
+        self.show_track_labels = bool(self.get_parameter("show_track_labels").value)
+        self.track_label_scale = float(self.get_parameter("track_label_scale").value)
         self.use_start_pose_until_odom = bool(self.get_parameter("use_start_pose_until_odom").value)
+
+        # The loaded track is static.  Latching its last MarkerArray makes the
+        # debug map appear immediately when RViz is opened or restarted.
+        track_marker_qos = QoSProfile(
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
 
         self.pointcloud_pub = self.create_publisher(
             PointCloud2,
@@ -165,7 +181,7 @@ class LidarSimulatorNode(Node):
         self.track_marker_pub = self.create_publisher(
             MarkerArray,
             str(self.get_parameter("track_markers_topic").value),
-            10,
+            track_marker_qos,
         )
         self.odom_sub = self.create_subscription(
             Odometry,
@@ -179,9 +195,16 @@ class LidarSimulatorNode(Node):
             raise ValueError("publish_rate_hz must be positive.")
         self.timer = self.create_timer(1.0 / publish_rate_hz, self._publish_scan)
 
+        # This is a static YAML ground-truth map, not a per-scan result.
+        # Publish it independently of odometry and keep it available to RViz
+        # through the transient-local publisher QoS.
+        self._publish_track_markers()
+
         self.get_logger().info(
             f"Loaded {len(self.cones)} cones from {track_file}; "
-            f"publishing {self.get_parameter('pointcloud_topic').value} at {publish_rate_hz:.1f} Hz"
+            f"publishing {self.get_parameter('pointcloud_topic').value} at {publish_rate_hz:.1f} Hz; "
+            f"ground-truth map: {self.get_parameter('track_markers_topic').value} "
+            f"({self.map_frame})"
         )
 
     def _on_ground_truth(self, msg: Odometry) -> None:
@@ -192,6 +215,10 @@ class LidarSimulatorNode(Node):
             float(pose.position.z),
             _quaternion_to_yaw(pose.orientation),
         ]
+        # The simulation bridge publishes map -> base_link with this exact
+        # timestamp.  Reuse it for lidar-frame output so RViz never has to
+        # extrapolate the transform to the timer's slightly newer wall time.
+        self.current_pose_stamp = msg.header.stamp
 
     def _active_pose(self) -> Optional[List[float]]:
         if self.current_pose is not None:
@@ -207,7 +234,11 @@ class LidarSimulatorNode(Node):
             return
 
         scan = self.simulator.simulate_scan(self.cones, vehicle_pose)
-        stamp = self.get_clock().now().to_msg()
+        stamp = (
+            self.current_pose_stamp
+            if self.current_pose is not None and self.current_pose_stamp is not None
+            else self.get_clock().now().to_msg()
+        )
         header = Header()
         header.stamp = stamp
         header.frame_id = self.frame_id
@@ -216,6 +247,9 @@ class LidarSimulatorNode(Node):
         msg = point_cloud2.create_cloud_xyz32(header, cloud_points.tolist())
         self.pointcloud_pub.publish(msg)
         self.marker_pub.publish(self._make_visible_markers(scan["visible_cones"], header))
+
+    def _publish_track_markers(self) -> None:
+        stamp = self.get_clock().now().to_msg()
         self.track_marker_pub.publish(self._make_track_markers(stamp))
 
     def _make_visible_markers(self, visible_cones: List[Dict[str, Any]], header: Header) -> MarkerArray:
@@ -257,14 +291,15 @@ class LidarSimulatorNode(Node):
 
         clear_marker = Marker()
         clear_marker.header.stamp = stamp
-        clear_marker.header.frame_id = "map"
+        clear_marker.header.frame_id = self.map_frame
         clear_marker.action = Marker.DELETEALL
         marker_array.markers.append(clear_marker)
 
         for idx, cone in enumerate(self.cones):
+            size = cone.get("size", [0.3, 0.3, 0.5])
             marker = Marker()
             marker.header.stamp = stamp
-            marker.header.frame_id = "map"
+            marker.header.frame_id = self.map_frame
             marker.ns = "track_cones"
             marker.id = idx
             marker.type = Marker.CYLINDER
@@ -272,10 +307,11 @@ class LidarSimulatorNode(Node):
             marker.pose.position = Point(
                 x=float(cone["position"][0]),
                 y=float(cone["position"][1]),
-                z=float(cone["position"][2]) + 0.25,
+                # Track YAML positions denote the cone base on the ground.
+                # RViz cylinders are centred on their pose, so use half height.
+                z=float(cone["position"][2]) + float(size[2]) / 2.0,
             )
             marker.pose.orientation.w = 1.0
-            size = cone.get("size", [0.3, 0.3, 0.5])
             marker.scale.x = float(size[0])
             marker.scale.y = float(size[1])
             marker.scale.z = float(size[2])
@@ -283,8 +319,33 @@ class LidarSimulatorNode(Node):
             marker.color.r = r
             marker.color.g = g
             marker.color.b = b
-            marker.color.a = a * 0.45
+            marker.color.a = a
             marker_array.markers.append(marker)
+
+            if self.show_track_labels:
+                label = Marker()
+                label.header.stamp = stamp
+                label.header.frame_id = self.map_frame
+                label.ns = "track_cone_info"
+                label.id = idx
+                label.type = Marker.TEXT_VIEW_FACING
+                label.action = Marker.ADD
+                label.pose.position = Point(
+                    x=float(cone["position"][0]),
+                    y=float(cone["position"][1]),
+                    z=float(cone["position"][2]) + float(size[2]) + 0.12,
+                )
+                label.pose.orientation.w = 1.0
+                label.scale.z = self.track_label_scale
+                label.color.r = r
+                label.color.g = g
+                label.color.b = b
+                label.color.a = 1.0
+                label.text = (
+                    f"#{idx} {cone['color']}  {cone.get('cone_type', 'cone')}\n"
+                    f"{float(size[0]):.2f} x {float(size[1]):.2f} x {float(size[2]):.2f} m"
+                )
+                marker_array.markers.append(label)
 
         return marker_array
 
