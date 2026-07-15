@@ -81,7 +81,22 @@ def _resolve_track_file(track_file: str) -> str:
     )
 
 
-def _marker_color(color: str) -> Tuple[float, float, float, float]:
+def _marker_color(color: str, cone_type: str = "") -> Tuple[float, float, float, float]:
+    """Return a display color while retaining the physical cone color.
+
+    The skidpad's direction-change cones are also yellow, but are 0.70 m high.
+    Render them in a deeper golden yellow so they remain distinguishable from
+    the 0.30 m low yellow deceleration cones in RViz.
+    """
+    if color.strip().lower() == "yellow" and cone_type.strip().lower() in {
+        "large_yellow",
+        "yellow_high",
+        "high_yellow",
+        "tall_yellow",
+        "large_direction_change",
+    }:
+        return (1.0, 0.58, 0.0, 0.98)
+
     colors = {
         "blue": (0.05, 0.25, 1.0, 0.95),
         "yellow": (1.0, 0.85, 0.05, 0.95),
@@ -287,7 +302,9 @@ class LidarSimulatorNode(Node):
             marker.scale.x = float(size[0])
             marker.scale.y = float(size[1])
             marker.scale.z = float(size[2])
-            r, g, b, a = _marker_color(str(cone["color"]))
+            r, g, b, a = _marker_color(
+                str(cone["color"]), str(cone.get("type", ""))
+            )
             marker.color.r = r
             marker.color.g = g
             marker.color.b = b
@@ -325,7 +342,9 @@ class LidarSimulatorNode(Node):
             marker.scale.x = float(size[0])
             marker.scale.y = float(size[1])
             marker.scale.z = float(size[2])
-            r, g, b, a = _marker_color(str(cone["color"]))
+            r, g, b, a = _marker_color(
+                str(cone["color"]), str(cone.get("cone_type", ""))
+            )
             marker.color.r = r
             marker.color.g = g
             marker.color.b = b

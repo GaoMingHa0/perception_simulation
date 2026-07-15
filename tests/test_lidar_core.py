@@ -8,6 +8,7 @@ from lidar_sim.lidar_simulator import (
     front,
     lidar_to_world,
     load_track_yaml,
+    normalize_cone,
     occlusion_judge,
     world_to_lidar,
 )
@@ -74,3 +75,36 @@ def test_load_track_yaml_directly():
     assert start_pose == [0.0, 0.0, 0.0, 0.0]
     assert len(cones) == 54
     assert cones[0]["color"] == "blue"
+
+
+def test_skidpad_uses_four_cone_classes_and_sizes():
+    cones, start_pose = load_track_yaml("tracks/skidpad.yaml")
+
+    assert start_pose == [-15.0, 0.0, 0.0, 0.0]
+    assert len(cones) == 66
+    assert sum(cone["type"] == "small_blue" for cone in cones) == 29
+    assert sum(cone["type"] == "small_red" for cone in cones) == 29
+    assert sum(cone["type"] == "small_yellow" for cone in cones) == 4
+    assert sum(cone["type"] == "large_yellow" for cone in cones) == 4
+
+    high_yellow = normalize_cone(
+        next(cone for cone in cones if cone["type"] == "large_yellow")
+    )
+    low_yellow = normalize_cone(
+        next(cone for cone in cones if cone["type"] == "small_yellow")
+    )
+    assert high_yellow.color == low_yellow.color == "yellow"
+    assert np.allclose(low_yellow.size, [0.20, 0.20, 0.30])
+    assert np.allclose(high_yellow.size, [0.35, 0.35, 0.70])
+
+    outer_arc_endpoints = [
+        cone["position"]
+        for cone in cones
+        if cone["type"] in {"small_blue", "small_red"}
+        and np.isclose(abs(cone["position"][0]), 7.399, atol=1e-3)
+        and np.isclose(abs(cone["position"][1]), 1.5)
+    ]
+    assert len(outer_arc_endpoints) == 4
+    for x, y, _ in outer_arc_endpoints:
+        circle_center_y = 9.125 if y > 0.0 else -9.125
+        assert np.isclose(x**2 + (y - circle_center_y) ** 2, 10.625**2, atol=2e-2)

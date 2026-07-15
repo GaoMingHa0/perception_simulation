@@ -46,6 +46,19 @@ CONE_SPECS: Dict[str, ConeSpec] = {
         size=(0.20, 0.20, 0.30),
         aliases=("small_yellow", "yellow"),
     ),
+    "large_yellow": ConeSpec(
+        name="large_yellow",
+        color="yellow",
+        color_id=COLOR_YELLOW,
+        size=(0.35, 0.35, 0.70),
+        aliases=(
+            "large_yellow",
+            "yellow_high",
+            "high_yellow",
+            "tall_yellow",
+            "large_direction_change",
+        ),
+    ),
     "small_blue": ConeSpec(
         name="small_blue",
         color="blue",
@@ -222,9 +235,12 @@ def load_track_yaml(track_file: Any) -> Tuple[list, list]:
     cones = []
     cone_groups = (
         ("blue_cones", "blue", "small_blue"),
-        ("yellow_cones", "yellow", "small_yellow"),
-        ("orange_cones", "orange", "large_orange"),
         ("red_cones", "red", "small_red"),
+        # Keep the legacy yellow_cones group as the low, standard-size cone.
+        ("yellow_cones", "yellow", "small_yellow"),
+        ("yellow_low_cones", "yellow", "small_yellow"),
+        ("yellow_high_cones", "yellow", "large_yellow"),
+        ("orange_cones", "orange", "large_orange"),
         ("unknown_cones", "unknown", DEFAULT_CONE_TYPE),
     )
     for key, color, cone_type in cone_groups:
