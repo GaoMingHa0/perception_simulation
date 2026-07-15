@@ -246,7 +246,17 @@ class LidarSimulatorNode(Node):
         cloud_points = np.asarray(scan["point_cloud"], dtype=np.float32)
         msg = point_cloud2.create_cloud_xyz32(header, cloud_points.tolist())
         self.pointcloud_pub.publish(msg)
-        self.marker_pub.publish(self._make_visible_markers(scan["visible_cones"], header))
+        # Sensor markers are a visualization-only stream.  Keep the point
+        # cloud's acquisition stamp for perception, but ask RViz for the
+        # latest lidar TF so a delayed EKF transform cannot cause an
+        # extrapolation error on the marker display.
+        marker_header = Header()
+        marker_header.frame_id = self.frame_id
+        marker_header.stamp.sec = 0
+        marker_header.stamp.nanosec = 0
+        self.marker_pub.publish(
+            self._make_visible_markers(scan["visible_cones"], marker_header)
+        )
 
     def _publish_track_markers(self) -> None:
         stamp = self.get_clock().now().to_msg()

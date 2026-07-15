@@ -32,7 +32,9 @@ Default behavior:
 
 - subscribes: `/sim/ground_truth` (`nav_msgs/msg/Odometry`)
 - publishes: `/hesai/pandar` (`sensor_msgs/msg/PointCloud2`)
-- publishes debug markers: `/sim/lidar/visible_cones` (`visualization_msgs/msg/MarkerArray`)
+- publishes debug markers: `/sim/lidar/visible_cones` (`visualization_msgs/msg/MarkerArray`);
+  these sensor-frame markers use stamp zero so RViz resolves the latest TF, while
+  `/hesai/pandar` keeps the ground-truth acquisition timestamp for perception.
 - publishes the complete ground-truth map loaded directly from YAML: `/sim/lidar/track_cones`
   (`visualization_msgs/msg/MarkerArray`, `map` frame).  It is transient-local,
   so RViz can display it even when opened after the simulator.  Each cone uses
