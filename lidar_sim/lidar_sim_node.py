@@ -123,7 +123,7 @@ class LidarSimulatorNode(Node):
         self.declare_parameter("frame_id", "lidar")
         self.declare_parameter("use_start_pose_until_odom", True)
         self.declare_parameter("random_seed", 42)
-        self.declare_parameter("fov_deg", 120.0)
+        self.declare_parameter("fov_deg", 360.0)
         self.declare_parameter("min_range", 1.5)
         self.declare_parameter("max_range", 50.0)
         self.declare_parameter("points_per_cone_min", 12)
@@ -139,7 +139,7 @@ class LidarSimulatorNode(Node):
         self.declare_parameter("lidar_offset_z", 1.0)
         self.declare_parameter("detection_probability", 1.0)
         self.declare_parameter("include_ground", True)
-        self.declare_parameter("enable_occlusion", True)
+        self.declare_parameter("enable_occlusion", False)
 
         track_file = _resolve_track_file(str(self.get_parameter("track_file").value))
         self.cones, self.start_pose = load_track_yaml(track_file)

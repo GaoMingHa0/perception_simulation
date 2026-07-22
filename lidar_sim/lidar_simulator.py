@@ -73,7 +73,7 @@ DEFAULT_CONE_TYPE = "small_blue"
 
 @dataclass(frozen=True)
 class LidarConfig:
-    fov_deg: float = 120.0
+    fov_deg: float = 360.0
     min_range: float = 1.5
     max_range: float = 50.0
     points_per_cone_min: int = 12
@@ -87,7 +87,7 @@ class LidarConfig:
     lidar_offset: Tuple[float, float, float] = (0.0, 0.0, 1.0)
     detection_probability: float = 1.0
     include_ground: bool = True
-    enable_occlusion: bool = True
+    enable_occlusion: bool = False
 
 
 @dataclass
@@ -311,7 +311,7 @@ def angle_judge(
     car_position: Any,
     car_heading: float,
     cone_position: Any,
-    fov_deg: float = 120.0,
+    fov_deg: float = 360.0,
 ) -> bool:
     """Return True when the cone is inside the horizontal LiDAR FOV."""
     car_position = _as_vector3(car_position, "car_position")
@@ -435,7 +435,10 @@ def judge(
     max_dist: float = 50.0,
 ) -> bool:
     """Return True when a cone can be scanned by the LiDAR."""
-    if not front(car_position, car_heading, cone_position):
+    # A spinning Hesai LiDAR sees around the vehicle.  The forward half-plane
+    # gate is only valid when the simulator is configured as a front-facing
+    # limited-FOV sensor.
+    if fov_deg < 359.0 and not front(car_position, car_heading, cone_position):
         return False
     if not angle_judge(car_position, car_heading, cone_position, fov_deg):
         return False
@@ -489,7 +492,7 @@ def generate_cone_surface_points(
 
 def generate_ground_points(
     n_points: int,
-    fov_deg: float = 120.0,
+    fov_deg: float = 360.0,
     min_range: float = 1.5,
     max_range: float = 50.0,
     ground_z: float = -1.0,

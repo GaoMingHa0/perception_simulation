@@ -56,7 +56,7 @@ python3 -m pytest tests/test_lidar_core.py -q
 构建安装版本：
 
 ```bash
-cd /home/starry1n/WUTA/WUTA-SIM
+cd /path/to/WUTA/WUTA-SIM
 colcon build --packages-select lidar_sim --symlink-install
 ```
 
@@ -65,4 +65,3 @@ colcon build --packages-select lidar_sim --symlink-install
 ```bash
 ros2 topic echo --once /sim/lidar/track_cones
 ```
-
