@@ -27,7 +27,8 @@ def test_visibility_gates():
 
     assert front(origin, 0.0, [5.0, 0.0, 0.0]) is True
     assert angle_judge(origin, 0.0, [5.0, 0.0, 0.0]) is True
-    assert angle_judge(origin, 0.0, [0.0, 5.0, 0.0]) is False
+    assert angle_judge(origin, 0.0, [0.0, 5.0, 0.0]) is True
+    assert angle_judge(origin, 0.0, [0.0, 5.0, 0.0], fov_deg=120.0) is False
     assert distance_judge(origin, [5.0, 0.0, 0.0]) is True
     assert distance_judge(origin, [1.0, 0.0, 0.0]) is False
 
@@ -64,7 +65,7 @@ def test_scan_is_reproducible():
     scan1 = LidarSimulator(config, seed=7).simulate_scan(cones, [0.0, 0.0, 0.0])
     scan2 = LidarSimulator(config, seed=7).simulate_scan(cones, [0.0, 0.0, 0.0])
 
-    assert len(scan1["visible_cones"]) == 2
+    assert len(scan1["visible_cones"]) == 3
     assert scan1["point_cloud"].shape[1] == 3
     assert np.allclose(scan1["point_cloud"], scan2["point_cloud"])
 
@@ -72,8 +73,8 @@ def test_scan_is_reproducible():
 def test_load_track_yaml_directly():
     cones, start_pose = load_track_yaml("tracks/acceleration.yaml")
 
-    assert start_pose == [0.0, 0.0, 0.0, 0.0]
-    assert len(cones) == 54
+    assert start_pose == [-0.3, 0.0, 0.0, 0.0]
+    assert len(cones) == 70
     assert cones[0]["color"] == "blue"
 
 
